@@ -1,0 +1,73 @@
+version: '3.7'
+
+# Tên nhóm cho các service liên quan đến Kong API Gateway
+services:
+  kong-setup:
+    image: postgres:13
+    container_name: kong-database
+    environment:
+      POSTGRES_USER: kong
+      POSTGRES_DB: kong
+      POSTGRES_PASSWORD: kongpass
+    networks:
+      - kong-net
+    volumes:
+      - kong-database-data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+
+  kong-api:
+    image: kong/kong-gateway:3.10.0.1
+    container_name: kong-gateway
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-database
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kongpass
+      KONG_PASSWORD: test
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: "0.0.0.0:8001"
+      KONG_ADMIN_GUI_URL: http://localhost:8002
+      KONG_LICENSE_DATA: # Điền license nếu có
+    networks:
+      - kong-net
+    ports:
+      - "8005:8000"
+      - "8443:8443"
+      - "8001:8001"
+      - "8444:8444"
+      - "8002:8002"
+      - "8445:8445"
+      - "8003:8003"
+      - "8004:8004"
+    depends_on:
+      - kong-database
+      - kong-migrations
+
+  kong-migrations:
+    image: kong/kong-gateway:3.10.0.1
+    container_name: kong-migrations
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-database
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kongpass
+      KONG_PASSWORD: test
+    command: kong migrations bootstrap
+    networks:
+      - kong-net
+    depends_on:
+      - kong-database
+    restart: "no"
+    entrypoint: /bin/sh -c "sleep 10 && kong migrations bootstrap"
+
+networks:
+  kong-net:
+    driver: bridge
+
+volumes:
+  kong-database-data:
+    driver: local
