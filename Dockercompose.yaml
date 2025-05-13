@@ -1,8 +1,7 @@
 version: '3.7'
 
-# Tên nhóm cho các service liên quan đến Kong API Gateway
 services:
-  kong-setup:
+  kong-database:
     image: postgres:13
     container_name: kong-database
     environment:
@@ -14,9 +13,26 @@ services:
     volumes:
       - kong-database-data:/var/lib/postgresql/data
     ports:
-      - "5433:5432"
+      - "5432:5432"
+    restart: always  # Tự động khởi động lại khi Docker hoặc máy chủ khởi động lại
 
-  kong-api:
+  kong-migrations:
+    image: kong/kong-gateway:3.10.0.1
+    container_name: kong-migrations
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-database
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kongpass
+      KONG_PASSWORD: test
+    command: kong migrations bootstrap
+    networks:
+      - kong-net
+    depends_on:
+      - kong-database
+    restart: "no"  # Chỉ chạy một lần, không khởi động lại
+
+  kong:
     image: kong/kong-gateway:3.10.0.1
     container_name: kong-gateway
     environment:
@@ -35,7 +51,7 @@ services:
     networks:
       - kong-net
     ports:
-      - "8005:8000"
+      - "8000:8000"
       - "8443:8443"
       - "8001:8001"
       - "8444:8444"
@@ -46,23 +62,7 @@ services:
     depends_on:
       - kong-database
       - kong-migrations
-
-  kong-migrations:
-    image: kong/kong-gateway:3.10.0.1
-    container_name: kong-migrations
-    environment:
-      KONG_DATABASE: postgres
-      KONG_PG_HOST: kong-database
-      KONG_PG_USER: kong
-      KONG_PG_PASSWORD: kongpass
-      KONG_PASSWORD: test
-    command: kong migrations bootstrap
-    networks:
-      - kong-net
-    depends_on:
-      - kong-database
-    restart: "no"
-    entrypoint: /bin/sh -c "sleep 10 && kong migrations bootstrap"
+    restart: always  # Tự động khởi động lại khi Docker hoặc máy chủ khởi động lại
 
 networks:
   kong-net:
